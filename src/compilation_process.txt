@@ -1,0 +1,3 @@
+
+latex some_file.tex
+dvisvgm some_file.dvi

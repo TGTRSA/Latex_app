@@ -1,0 +1,7 @@
+$\int x^2 \,dx = \frac{x^3}{3} + C$.
+
+We can calculate a definite integral from zero to one for $x^2$:
+
+$\int_{0}^{1} x^2 \,dx = \left[ \frac{x^3}{3} \right]_{0}^{1} = \frac{1}{3}$
+
+

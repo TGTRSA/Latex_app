@@ -1,0 +1,13 @@
+<document> ::= <element>*
+<element> ::= <header> | <paragraph> | <sentence> | <inline_command> | <command_block>  | <list> 
+<header> ::= <h1> | <h2> | <h3>
+<h1> ::= '#' <text> '\n'
+<h2> ::= '##' <text> '\n'
+<h3> ::= '###' <text> '\n'
+<paragraph> ::= <sentence> '\n'
+<sentence> ::= <text> '.'
+<list> ::= <item> ('\n' <item>)*
+<item> ::= '*' <text>
+<inline_command> ::= '$' <text> '$'  
+<command_block> ::= '\n' !' <text> '!'
+<text> ::= [a-zA-Z0-9]+
