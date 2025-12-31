@@ -1,0 +1,40 @@
+
+?document: element*
+
+?element: header
+        | paragraph
+        | command_block
+        | list
+
+// --- Headers ---
+header: h1 | h2 | h3
+h1: HASH TEXT NEWLINE
+h2: HASH HASH TEXT NEWLINE
+h3: HASH HASH HASH TEXT NEWLINE
+
+// --- Paragraphs & Sentences ---
+paragraph: sentence+
+sentence: text_inline+ (DOT | NEWLINE)
+
+list: item+
+item: STAR (TEXT | inline_command)+ NEWLINE?
+
+// --- Inline commands ---
+inline_command: DOLLAR COMMAND_TEXT DOLLAR
+command_block: BANG COMMAND_TEXT BANG
+
+// --- Tokens ---
+HASH: "#"
+STAR: "*"
+DOLLAR: "$"
+BANG: "!"
+DOT: "."
+NEWLINE: /\n+/
+
+// --- Text types ---
+TEXT: /[a-zA-Z0-9,.!?]+/       // normal words and simple punctuation
+COMMAND_TEXT: /(\\[^$\n]+|[^$])+/   // match anything except $
+text_inline: TEXT | inline_command
+
+%ignore " "
+
