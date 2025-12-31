@@ -7,7 +7,8 @@ filepath = "/home/tash/pythonProds/latex_app/src/latex_template.txt"
 
   #                  \begin{equation}"
 
-#TODO: Add functionality for detecting commands
+#TODO: Utilise the grammar,bnf file for command/syntax detection
+#TODO: Add tikz support to the latex source code 
 class Parser:
     def __init__(self,text):
         self.text = text
