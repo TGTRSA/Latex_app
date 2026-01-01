@@ -1,4 +1,5 @@
-from lark import Lark, Transformer, v_args
+from lark import Lark, Transformer, v_args, Token, Tree
+
 import json
 
 filepath = "/home/tash/pythonProds/latex_app/src/latex_template.txt"
@@ -11,86 +12,114 @@ filepath = "/home/tash/pythonProds/latex_app/src/latex_template.txt"
 #TODO: Utilise the grammar,bnf file for command/syntax detection
 #TODO: Add tikz support to the latex source code 
 
+class Compiler:
+    def compile(self, node):
+        if isinstance(node, Tree):
+            return self.compile_tree(node)
+        elif isinstance(node, Token):
+            return node.value
+        return ""
 
-class ASTTransformer(Transformer):
-    def document(self, items):
-        return {"type": "document", "content": items}
-    
-    def h1(self, items):
-        return {"type": "header", "level": 1, "text": " ".join(str(i) for i in items if i.type == 'TEXT')}
-    def h2(self, items):
-        return {"type": "header", "level": 2, "text": " ".join(str(i) for i in items if i.type == 'TEXT')}
-    def h3(self, items):
-        return {"type": "header", "level": 3, "text": " ".join(str(i) for i in items if i.type == 'TEXT')}
-    
-    def paragraph(self, items):
-        return {"type": "paragraph", "sentences": items}
-    
-    def sentence(self, items):
-        # Merge TEXT and inline_command
-        text = []
-        for i in items:
-            if isinstance(i, dict) and i.get("type") == "inline_command":
-                text.append(f"${i['command']}$")
-            else:
-                text.append(str(i))
-        return " ".join(text)
-    
-    def list(self, items):
-        return {"type": "list", "items": items}
-    
-    def item(self, items):
-        # Merge text_inline like in sentence
-        text = []
-        for i in items:
-            if isinstance(i, dict) and i.get("type") == "inline_command":
-                text.append(f"${i['command']}$")
-            elif hasattr(i, 'type') and i.type == 'STAR':
-                continue
-            else:
-                text.append(str(i))
-        return " ".join(text)
-    
-    def inline_command(self, items):
-        return {"type": "inline_command", "command": str(items[0])}
-    
-    def command_block(self, items):
-        return {"type": "command_block", "command": str(items[0])}
-    
-    def TEXT(self, token):
-        return str(token)
-    
-    def COMMAND_TEXT(self, token):
-        return str(token)
+    def compile_tree(self, tree):
+        method = getattr(self, f"compile_{tree.data}", None)
+        if method:
+            return method(tree.children)
+        else:
+            # default: compile children
+            return "".join(self.compile(c) for c in tree.children)
+
+    # ---------- document ----------
+    def compile_document(self, children):
+        body = "".join(self.compile(c) for c in children)
+        return (
+            "\\documentclass{standalone}\n"
+            "\\begin{document}\n"
+            f"{body}\n"
+            "\\end{document}"
+        )
+
+    # ---------- headers ----------
+    def compile_h1(self, children):
+        text = self.extract_text(children)
+        return f"\\section{{{text}}}\n"
+
+    def compile_h2(self, children):
+        text = self.extract_text(children)
+        return f"\\subsection{{{text}}}\n"
+
+    def compile_h3(self, children):
+        text = self.extract_text(children)
+        return f"\\subsubsection{{{text}}}\n"
+
+    # ---------- paragraphs ----------
+    def compile_paragraph(self, children):
+        text = "".join(self.compile(c) for c in children)
+        return f"{text}\n\n"
+
+    def compile_sentence(self, children):
+        return "".join(self.compile(c) for c in children)
+
+    # ---------- lists ----------
+    def compile_list(self, children):
+        items = "".join(self.compile(c) for c in children)
+        return "\\begin{itemize}\n" + items + "\\end{itemize}\n"
+
+    def compile_item(self, children):
+        text = self.extract_text(children)
+        return f"  \\item {text}\n"
+
+    # ---------- commands ----------
+    def compile_inline_command(self, children):
+        # $ ... $
+        return f"${self.extract_text(children)}$"
+
+    def compile_command_block(self, children):
+        # ! ... !
+        return f"\\[{self.extract_text(children)}\\]\n"
+
+    # ---------- helpers ----------
+    def extract_text(self, nodes):
+        return "".join(
+            self.compile(n)
+            for n in nodes
+            if not (isinstance(n, Token) and n.type in {"HASH", "STAR", "DOLLAR", "BANG", "NEWLINE"})
+        )
+   
 
 class Parser:
     def __init__(self,text):
         self.text = text
-
+        self.operator = Lark(open('grammar.ebnf').read(), parser='lalr', start='document')
+    
     def parse(self):
-        source = ""
-        buffer=1024
-        for i in range(0, len(self.text), buffer):
-            source += self.text[0:buffer]
-         
-        latex_file_text = r"\documentclass{standalone}"+"\n"+r"\begin{document}"+"\n"
-        latex_file_text += f"{source}\n"
-        latex_file_text += r"\end{document}"
-        
-        return latex_file_text
-        #print(latex_file_text)
+        tree = self.operator.parse(self.text)
+        return tree
+    
+    def lex_text(self):
+        lexed_text = self.operator.lex(self.text)
+        return lexed_text
 
+def travel(tree):
+    tree_nodes = []
+    token_nodes = []
+    for child in tree.children:
+        if isinstance(child, Tree):
+            tree_nodes.append(child)
+            
+        if isinstance(child, Token):
+            token_nodes.append(child)
+    print("Trees:\n", tree_nodes)
+    print("Tokens:\n", token_nodes)
+            
 
-parser = Lark(open('grammar.ebnf').read(), parser='lalr', start='document')
-
-with open('example.txt', 'r') as file:
-    text = file.read()
-try:
-    tree = parser.parse(text)
-    print(parser.parse(text))
-except Exception as e:
-    print(f"[X] Exception: {e}")
-ast = ASTTransformer().transform(tree)
-print(json.dumps(ast, indent=2))
-#Parser("This is some not so long text $command block$").parse()
-
+if __name__ == "__main__":
+    with open('example.txt', 'r') as file:
+        text = file.read()
+    tree = Parser(text).parse()
+    latex = Compiler().compile(tree)
+    print(latex)
+    #for token in lexed_text: 
+     #   print(token.type)
+    #ast = ASTTransformer().transform(tree)
+    #print(type(ast))
+    #json.dumps(ast)

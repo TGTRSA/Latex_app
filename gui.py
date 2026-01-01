@@ -1,11 +1,14 @@
 import sys
 from PyQt5.QtWidgets import (QApplication, QWidget, QLineEdit, QVBoxLayout, 
                              QComboBox, QTextEdit, QPushButton, QHBoxLayout, 
-                             QLabel, QLineEdit, QScrollArea, QSplitter, QMenu)
+                             QLabel, QLineEdit, QScrollArea, QSplitter, QMenu, QFileDialog)
 import PyQt5
 from PyQt5.QtCore import Qt
 #import numpy as np
 from compiler import Parser
+import compiler
+import os
+
 
 #TODO: create a save button and make it save the file
 #TODO: on compile use the outputted latex file and run the neccessary commands to create the .text/.dvi/.svg files
@@ -18,7 +21,7 @@ class StartWindow(QWidget):
         self.init_ui()
 
     def include_parser(self, text):
-        latex_file_text=Parser(text).parse()
+        latex_file_text=Parser(text).tokenise()
         return latex_file_text 
 
     def init_ui(self):
@@ -29,11 +32,13 @@ class StartWindow(QWidget):
         self.setWindowTitle("My PyQt Window")
         self.setGeometry(100,100,400,300)
         self.double_display()
-        self.menu_bar()    
+        #self.menu_bar()    
         layout = QVBoxLayout()
         layout.addWidget(self.compile_button)
         layout.addWidget(self.splitter)
-        layout.addWidget(self.menu_bar)
+        #layout.addWidget(self.menu_bar)
+        self.style_sheets()
+
         self.setLayout(layout)
         self.show()
     
@@ -43,8 +48,12 @@ class StartWindow(QWidget):
         file_menu = self.menu_bar.addMenu("&File")
         
         file_menu.addAction("Open")
+        file_menu.addAction("Save")
 
     def double_display(self):
+        """
+        Screen splitter with input | output sets
+        """
         self.splitter = QSplitter(Qt.Horizontal)
         text_input = QTextEdit()
         text_input.setPlaceholderText("Type here")
@@ -56,25 +65,56 @@ class StartWindow(QWidget):
 
         self.splitter.setSizes([320, 480])
         
-        #FIX: Compile button is too large and in the middle which just looks dreadful
+        
         self.compile_button = QPushButton("Compile")
         self.save_file_button = QPushButton("Save")
+        self.compile_button.setParent(self.splitter)
+        self.compile_button.move(300, 450)
+        
+        def get_text_input():
+            text = text_input.toPlainText()
+            return text
+
+        def _save():
+            filepath, _ = QFileDialog.getSaveFileName(self, "Save file")
+            content = get_text_input()
+            if filepath:
+                with open(filepath, "w") as f:
+                    f.write(content)
 
         def compile_text():
-            text = text_input.toPlainText()
+            text = get_text_input()
             latex_file_text=self.include_parser(text)
             
             display_text.clear()
-            display_text.append(latex_file_text)
+            display_text.append(str(latex_file_text))
             
         self.compile_button.clicked.connect(compile_text)
-
+        self.save_file_button.clicked.connect(_save)
+        
     def text_inputs(self):
+        """
+        Slot for all text input components (for this window)
+        """
         self.latex_input = QTextEdit()
         self.latex_input.setPlainText("Multi-line here\n")
         self.layout.addWidget(self.latex_input)
         
     
+    def style_sheets(self):
+        """
+        Styles for all of the gui components(for this window)
+        """
+        self.compile_button.setStyleSheet("""
+                                          QPushButton{
+                                          background-color: #2ecc71;
+                                          border:none;
+                                          padding:10px 2px;
+                                          border-radius:5px;
+                                          max-width:60px;
+                                          }
+                                          """)
+
     def show_text_input(self,text):
         if text=='Show Text Input':
             self.text_input.show()

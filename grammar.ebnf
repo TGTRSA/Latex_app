@@ -21,7 +21,8 @@ item: STAR (TEXT | inline_command)+ NEWLINE?
 
 // --- Inline commands ---
 inline_command: DOLLAR COMMAND_TEXT DOLLAR
-command_block: BANG COMMAND_TEXT BANG
+command_block: BANG command_body BANG NEWLINE?
+command_body: (COMMAND_TEXT | NEWLINE)+
 
 // --- Tokens ---
 HASH: "#"
@@ -32,9 +33,7 @@ DOT: "."
 NEWLINE: /\n+/
 
 // --- Text types ---
-TEXT: /[a-zA-Z0-9,.!?]+/       // normal words and simple punctuation
-COMMAND_TEXT: /(\\[^$\n]+|[^$])+/   // match anything except $
+TEXT: /[a-zA-Z0-9,.!?\s]+/
+COMMAND_TEXT: /(\\[^$!\n]+|[^$!])+/ 
 text_inline: TEXT | inline_command
-
-%ignore " "
 
