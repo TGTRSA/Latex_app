@@ -14,7 +14,9 @@ h3: HASH HASH HASH TEXT NEWLINE
 
 // --- Paragraphs & Sentences ---
 paragraph: sentence+
-sentence: text_inline+ (DOT | NEWLINE)
+
+sentence: text_inline+ (DOT | NEWLINE)?
+
 
 list: item+
 item: STAR (text_inline)+ NEWLINE?
@@ -35,7 +37,9 @@ NEWLINE: /\n+/
 // --- Text types ---
 
 
+
 TEXT: /[a-zA-Z0-9,.?^_=()+\- ]+/
+
 
 COMMAND_TEXT: /(\\[^$!\n]+|[^$!])+/ 
 text_inline: TEXT | inline_command

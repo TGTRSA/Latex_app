@@ -14,6 +14,7 @@ filepath = "/home/tash/pythonProds/latex_app/src/latex_template.txt"
 
 class Compiler:
     """
+    Uses the tree returned from Parser  passed into the .compile function
     Reads the tokens within the parse tree then 'converts' them into
     latex code
     """

@@ -5,8 +5,7 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QLineEdit, QVBoxLayout,
 import PyQt5
 from PyQt5.QtCore import Qt
 #import numpy as np
-from compiler import Parser
-import compiler
+from compiler import Parser, Compiler
 import os
 
 
@@ -21,8 +20,15 @@ class StartWindow(QWidget):
         self.init_ui()
 
     def include_parser(self, text):
-        latex_file_text=Parser(text).tokenise()
-        return latex_file_text 
+        try:
+            tree = Parser(text).parse()
+        
+            latex_text = Compiler().compile(tree)
+            print(latex_text)    
+            return latex_text
+        except Exception as e:
+            print(f"[ERROR] {e}")
+            return -1 
 
     def init_ui(self):
         """
@@ -84,10 +90,10 @@ class StartWindow(QWidget):
 
         def compile_text():
             text = get_text_input()
-            latex_file_text=self.include_parser(text)
+            latex_text=self.include_parser(text)
             
             display_text.clear()
-            display_text.append(str(latex_file_text))
+            display_text.append(str(latex_text))
             
         self.compile_button.clicked.connect(compile_text)
         self.save_file_button.clicked.connect(_save)
