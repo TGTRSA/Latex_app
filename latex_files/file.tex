@@ -1,13 +1,28 @@
 \documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{geometry}
 \begin{document}
 \section{ Heading}
 This is a basic example 
-
-
 \begin{itemize}
   \item  1 
   \item  $ \int $ 
 \end{itemize}
-\[ \oint x^3 dx \]
+\begin{equation} 
+    \iint x^3 dx 
+\end{equation}
+The integral form of mass conservation is
+\begin{equation}
+    \frac{\partial}{\partial t} \iiint_{V} \rho \, dV
+    + \iint_{S} \rho \mathbf{u} \cdot \mathbf{n} \, dS = 0 .
+\end{equation}
+
+For an incompressible fluid with constant density $\rho$, this reduces to
+\begin{equation}
+    \iint_{S} \mathbf{u} \cdot \mathbf{n} \, dS = 0 .
+\end{equation}
+
 
 \end{document}

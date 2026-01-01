@@ -1,5 +1,6 @@
 
 {
  'latex_compile': 'latex',
-'dvi_compile': 'dvisvgm'
+'dvi_compile': 'dvisvgm --no-fonts file.dvi'
+
 }
