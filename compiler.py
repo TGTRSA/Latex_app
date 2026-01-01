@@ -9,7 +9,7 @@ filepath = "/home/tash/pythonProds/latex_app/src/latex_template.txt"
 
   #                  \begin{equation}"
 
-#TODO: Utilise the grammar,bnf file for command/syntax detection
+#TODO: Utilise the grammar,bnf file for command/syntax detection => DONE
 #TODO: Add tikz support to the latex source code 
 
 class Compiler:
@@ -37,6 +37,11 @@ class Compiler:
         body = "".join(self.compile(c) for c in children)
         return (
             "\\documentclass{article}\n"
+            "\\usepackage[utf8]{inputenc}\n"
+            "\\usepackage{amsmath}\n"
+            "\\usepackage{amssymb}\n"
+            "\\usepackage{tikz}\n"
+            "\\usepackage{geometry}\n"
             "\\begin{document}\n"
             f"{body}\n"
             "\\end{document}"
@@ -78,8 +83,9 @@ class Compiler:
         return f"${self.extract_text(children)}$"
 
     def compile_command_block(self, children):
+        equation = "equation"
         # ! ... !
-        return f"\\[{self.extract_text(children)}\\]\n"
+        return f"\\begin{{equation}}\n{self.extract_text(children)}\n\\end{{equation}}\n"
 
     # ---------- helpers ----------
     def extract_text(self, nodes):
