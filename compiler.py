@@ -13,6 +13,10 @@ filepath = "/home/tash/pythonProds/latex_app/src/latex_template.txt"
 #TODO: Add tikz support to the latex source code 
 
 class Compiler:
+    """
+    Reads the tokens within the parse tree then 'converts' them into
+    latex code
+    """
     def compile(self, node):
         if isinstance(node, Tree):
             return self.compile_tree(node)
@@ -32,7 +36,7 @@ class Compiler:
     def compile_document(self, children):
         body = "".join(self.compile(c) for c in children)
         return (
-            "\\documentclass{standalone}\n"
+            "\\documentclass{article}\n"
             "\\begin{document}\n"
             f"{body}\n"
             "\\end{document}"

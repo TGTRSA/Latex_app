@@ -17,7 +17,7 @@ paragraph: sentence+
 sentence: text_inline+ (DOT | NEWLINE)
 
 list: item+
-item: STAR (TEXT | inline_command)+ NEWLINE?
+item: STAR (text_inline)+ NEWLINE?
 
 // --- Inline commands ---
 inline_command: DOLLAR COMMAND_TEXT DOLLAR
@@ -33,7 +33,10 @@ DOT: "."
 NEWLINE: /\n+/
 
 // --- Text types ---
-TEXT: /[a-zA-Z0-9,.!?\s]+/
+
+
+TEXT: /[a-zA-Z0-9,.?^_=()+\- ]+/
+
 COMMAND_TEXT: /(\\[^$!\n]+|[^$!])+/ 
 text_inline: TEXT | inline_command
 
