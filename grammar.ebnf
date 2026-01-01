@@ -14,33 +14,25 @@ h3: HASH HASH HASH TEXT NEWLINE
 
 // --- Paragraphs & Sentences ---
 paragraph: sentence+
+sentence: text+ (DOT | NEWLINE)?
 
-sentence: text_inline+ (DOT | NEWLINE)?
-
-
+// --- Lists ---
 list: item+
-item: STAR (text_inline)+ NEWLINE?
+item: STAR text+ NEWLINE?
 
-// --- Inline commands ---
-inline_command: DOLLAR COMMAND_TEXT DOLLAR
+// --- Command blocks ---
 command_block: BANG command_body BANG NEWLINE?
 command_body: (COMMAND_TEXT | NEWLINE)+
 
 // --- Tokens ---
 HASH: "#"
 STAR: "*"
-DOLLAR: "$"
 BANG: "!"
 DOT: "."
 NEWLINE: /\n+/
 
 // --- Text types ---
-
-
-
-TEXT: /[a-zA-Z0-9,.?^_=()+\- ]+/
-
-
-COMMAND_TEXT: /(\\[^$!\n]+|[^$!])+/ 
-text_inline: TEXT | inline_command
+TEXT: /[a-zA-Z0-9,.?^_=()+\- $\\]+/
+COMMAND_TEXT: /(\\[^!\n]+|[^!])+/ 
+text: TEXT
 

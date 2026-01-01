@@ -12,11 +12,11 @@ filepath = "/home/tash/pythonProds/latex_app/src/latex_template.txt"
 #TODO: Utilise the grammar,bnf file for command/syntax detection => DONE
 #TODO: Add tikz support to the latex source code 
 
+
 class Compiler:
     """
-    Uses the tree returned from Parser  passed into the .compile function
-    Reads the tokens within the parse tree then 'converts' them into
-    latex code
+    Converts the parse tree into LaTeX code.
+    Only command blocks produce special LaTeX environments.
     """
     def compile(self, node):
         if isinstance(node, Tree):
@@ -30,7 +30,6 @@ class Compiler:
         if method:
             return method(tree.children)
         else:
-            # default: compile children
             return "".join(self.compile(c) for c in tree.children)
 
     # ---------- document ----------
@@ -50,52 +49,37 @@ class Compiler:
 
     # ---------- headers ----------
     def compile_h1(self, children):
-        text = self.extract_text(children)
-        return f"\\section{{{text}}}\n"
-
+        return f"\\section{{{self.extract_text(children)}}}\n"
     def compile_h2(self, children):
-        text = self.extract_text(children)
-        return f"\\subsection{{{text}}}\n"
-
+        return f"\\subsection{{{self.extract_text(children)}}}\n"
     def compile_h3(self, children):
-        text = self.extract_text(children)
-        return f"\\subsubsection{{{text}}}\n"
+        return f"\\subsubsection{{{self.extract_text(children)}}}\n"
 
     # ---------- paragraphs ----------
     def compile_paragraph(self, children):
-        text = "".join(self.compile(c) for c in children)
-        return f"{text}\n\n"
-
+        return "".join(self.compile(c) for c in children) + "\n\n"
     def compile_sentence(self, children):
         return "".join(self.compile(c) for c in children)
 
     # ---------- lists ----------
     def compile_list(self, children):
-        items = "".join(self.compile(c) for c in children)
-        return "\\begin{itemize}\n" + items + "\\end{itemize}\n"
-
+        return "\\begin{itemize}\n" + "".join(self.compile(c) for c in children) + "\\end{itemize}\n"
     def compile_item(self, children):
-        text = self.extract_text(children)
-        return f"  \\item {text}\n"
+        return "  \\item " + self.extract_text(children) + "\n"
 
-    # ---------- commands ----------
-    def compile_inline_command(self, children):
-        # $ ... $
-        return f"${self.extract_text(children)}$"
-
+    # ---------- command blocks ----------
     def compile_command_block(self, children):
-        equation = "equation"
-        # ! ... !
-        return f"\\begin{{equation}}\n{self.extract_text(children)}\n\\end{{equation}}\n"
+        body = self.extract_text(children)
+        return f"\\begin{{equation}}\n{body}\n\\end{{equation}}\n"
 
     # ---------- helpers ----------
     def extract_text(self, nodes):
         return "".join(
             self.compile(n)
             for n in nodes
-            if not (isinstance(n, Token) and n.type in {"HASH", "STAR", "DOLLAR", "BANG", "NEWLINE"})
+            if not (isinstance(n, Token) and n.type in {"HASH", "STAR", "BANG", "NEWLINE", "DOT"})
         )
-   
+  
 
 class Parser:
     def __init__(self,text):

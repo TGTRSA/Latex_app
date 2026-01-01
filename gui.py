@@ -17,18 +17,7 @@ class StartWindow(QWidget):
     def __init__(self):
         print("Executing window start")
         super().__init__()
-        self.init_ui()
-
-    def include_parser(self, text):
-        try:
-            tree = Parser(text).parse()
-        
-            latex_text = Compiler().compile(tree)
-            print(latex_text)    
-            return latex_text
-        except Exception as e:
-            print(f"[ERROR] {e}")
-            return -1 
+        self.init_ui() 
 
     def init_ui(self):
         """
@@ -89,12 +78,26 @@ class StartWindow(QWidget):
                     f.write(content)
 
         def compile_text():
-            text = get_text_input()
-            latex_text=self.include_parser(text)
+            try:
+                text = get_text_input()
             
-            display_text.clear()
-            display_text.append(str(latex_text))
+                tree = Parser(text).parse()
+        
+                latex_text = Compiler().compile(tree)
+                display_text.clear()
+                display_text.append(str(latex_text))
+                text_from_file = open("example.txt").read()
+                text_from_qt = text_input.toPlainText()
+
+                print("From file:", repr(text_from_file))
+                print("From Qt:", repr(text_from_qt))
+                print(latex_text)    
+            except Exception as e:
+                print(f"[ERROR] {e}")
+                return -1 
+                #   latex_text=self.include_parser(text)
             
+           
         self.compile_button.clicked.connect(compile_text)
         self.save_file_button.clicked.connect(_save)
         
