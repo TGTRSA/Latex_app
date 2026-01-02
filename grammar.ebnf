@@ -8,9 +8,9 @@
 
 // --- Headers ---
 header: h1 | h2 | h3
-h1: HASH TEXT NEWLINE
-h2: HASH HASH TEXT NEWLINE
-h3: HASH HASH HASH TEXT NEWLINE
+h1: HASH TEXT NEWLINE?
+h2: HASH HASH TEXT NEWLINE?
+h3: HASH HASH HASH TEXT NEWLINE?
 
 // --- Paragraphs & Sentences ---
 paragraph: sentence+

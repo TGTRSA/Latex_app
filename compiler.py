@@ -1,5 +1,5 @@
 from lark import Lark, Transformer, v_args, Token, Tree
-
+import os
 import json
 
 filepath = "/home/tash/pythonProds/latex_app/src/latex_template.txt"
@@ -18,12 +18,28 @@ class Compiler:
     Converts the parse tree into LaTeX code.
     Only command blocks produce special LaTeX environments.
     """
+    
     def compile(self, node):
+        # initialize flag on first ever call
+        if not hasattr(self, "_is_root"):
+            self._is_root = True
+        is_root_call = self._is_root
+        self._is_root = False
+
         if isinstance(node, Tree):
-            return self.compile_tree(node)
+            result = self.compile_tree(node)
+
+            # ✅ wrap only ONCE, only at root, only if not already document
+            if is_root_call and node.data != "document":
+                return self.compile_document([node])
+
+            return result
+
         elif isinstance(node, Token):
             return node.value
+
         return ""
+
 
     def compile_tree(self, tree):
         method = getattr(self, f"compile_{tree.data}", None)
@@ -77,7 +93,7 @@ class Compiler:
         return "".join(
             self.compile(n)
             for n in nodes
-            if not (isinstance(n, Token) and n.type in {"HASH", "STAR", "BANG", "NEWLINE", "DOT"})
+            if not (isinstance(n, Token) and n.type in {"HASH", "STAR", "BANG", "NEWLINE"})
         )
   
 
@@ -108,13 +124,13 @@ def travel(tree):
             
 
 if __name__ == "__main__":
-    with open('example.txt', 'r') as file:
-        text = file.read()
-    tree = Parser(text).parse()
-    latex = Compiler().compile(tree)
-    print(latex)
-    #for token in lexed_text: 
-     #   print(token.type)
-    #ast = ASTTransformer().transform(tree)
-    #print(type(ast))
-    #json.dumps(ast)
+    for example in os.listdir('examples/'):
+        print(f'Starting parser on {example}\n')
+
+        with open(f'examples/{example}', 'r') as file:
+            text = file.read()
+        tree = Parser(text).parse()
+        print(f'Tree for {example}:\n{tree}')
+        latex = Compiler().compile(tree)
+        print(latex)
+    

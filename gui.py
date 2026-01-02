@@ -86,11 +86,7 @@ class StartWindow(QWidget):
                 latex_text = Compiler().compile(tree)
                 display_text.clear()
                 display_text.append(str(latex_text))
-                text_from_file = open("example.txt").read()
-                text_from_qt = text_input.toPlainText()
-
-                print("From file:", repr(text_from_file))
-                print("From Qt:", repr(text_from_qt))
+                
                 print(latex_text)    
             except Exception as e:
                 print(f"[ERROR] {e}")
