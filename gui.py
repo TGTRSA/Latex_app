@@ -108,21 +108,37 @@ class StartWindow(QMainWindow):
         
         return tex_output
 
+   
     def cache_file(self, latex_output):
-        random_name = (str(uuid.uuid4()))
-        os.makedirs(f"/home/tash/pythonProds/latex_app/temp/{random_name}")
-        with open(f"temp/{random_name}/{random_name}.tex", "w") as f:
+        random_name = str(uuid.uuid4())
+        path = f"/home/tash/pythonProds/latex_app/temp/{random_name}"
+        os.makedirs(path, exist_ok=True)
+
+        tex_file = f"{path}/{random_name}.tex"
+        with open(tex_file, "w") as f:
             f.write(latex_output)
+
         try:
-            result = subprocess.run([f'latex {random_name}.tex'], capture_output=True)
-            if result.stderr:
-                raise SystemError(f'[ERROR] {result}')
+            result = subprocess.run(
+                ['latex', f'{random_name}.tex'],
+                cwd=path,
+                capture_output=True,
+                text=True
+                )
+
+            if result.returncode != 0:
+                raise SystemError(f'[ERROR] LaTeX compilation failed:\n{result.stderr}')
+
+            # Optional: return path to generated files or PDF
+            pdf_file = f"{path}/{random_name}.pdf"
+            return pdf_file
+
         except Exception as e:
-            print(f"[ERROR] {e}:\n{result} ")
+            print(f"[ERROR] {e}\nstdout: {result.stdout}\nstderr: {result.stderr}")
     
     def compile_text(self):
         try:
-            latex_text= self.convert_to_tex()
+            latex_output= self.convert_to_tex()
             self.cache_file(latex_output)
             self.display_text.clear()
             self.display_text.append(str(latex_text))
