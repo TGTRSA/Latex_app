@@ -8,11 +8,11 @@ This file uses some base latex as a template and will structure the text around 
 It includes the parser which will read the text and parse it into components based on the "grammar.bnf" file using lark as a lexer base.
 
 # gui.py
-    ## Cache
+## Cache
         uses random name initated at the start of a window and changed upon a file being opened more akin to a session ID
         
 
-    ### Savefiles
+### Savefiles
     The folder in which the generated text files will go.
 
 # tmp
