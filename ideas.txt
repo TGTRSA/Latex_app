@@ -1,0 +1,28 @@
+In regard to file saving 
+import os
+import hashlib
+
+class Buffer:
+    def __init__(self, path):
+        self.path = path
+        self.load()
+        self.modified = False
+
+    def load(self):
+        if os.path.exists(self.path):
+            with open(self.path, "r", encoding="utf-8") as f:
+                self.content = f.read()
+        else:
+            self.content = ""
+
+        self.hash = hashlib.md5(self.content.encode()).hexdigest()
+
+    def edit(self, new_content):
+        self.content = new_content
+        self.modified = True
+
+    def save(self):
+        with open(self.path, "w", encoding="utf-8") as f:
+            f.write(self.content)
+        self.modified = False
+        self.hash = hashlib.md5(self.content.encode()).hexdigest()
