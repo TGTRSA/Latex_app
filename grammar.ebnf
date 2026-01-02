@@ -22,7 +22,8 @@ item: STAR text+ NEWLINE?
 
 // --- Command blocks ---
 command_block: BANG command_body BANG NEWLINE?
-command_body: (COMMAND_TEXT | NEWLINE)+
+command_body: (TEXT | NEWLINE)+
+
 
 // --- Tokens ---
 HASH: "#"
@@ -32,7 +33,11 @@ DOT: "."
 NEWLINE: /\n+/
 
 // --- Text types ---
-TEXT: /[a-zA-Z0-9,.?^_=()+\- $\\]+/
+
+
+TEXT: /[a-zA-Z0-9,.?^_=()+\- $\\{}<>]+/
+
+
 COMMAND_TEXT: /(\\[^!\n]+|[^!])+/ 
 text: TEXT
 
