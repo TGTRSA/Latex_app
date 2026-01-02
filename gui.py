@@ -136,12 +136,15 @@ class StartWindow(QMainWindow):
         except Exception as e:
             print(f"[ERROR] {e}\nstdout: {result.stdout}\nstderr: {result.stderr}")
     
+    def compile_tex(self):
+        pass
+
     def compile_text(self):
         try:
             latex_output= self.convert_to_tex()
             self.cache_file(latex_output)
             self.display_text.clear()
-            self.display_text.append(str(latex_text))
+            self.display_text.append(str(latex_output))
             
             #print(latex_text)
         except Exception as e:
