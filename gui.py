@@ -142,12 +142,15 @@ class StartWindow(QMainWindow):
 
         open_action = QAction("Open", self)
         save_action = QAction("Save", self)
+        export_action = QAction("Export", self)
 
         open_action.triggered.connect(self.open_file)
         save_action.triggered.connect(self.save_file)
-
+        export_action.triggered.connect(self.export_latex_file)
+        
         menu.addAction(open_action)
         menu.addAction(save_action)
+        menu.addAction(export_action)
 
     # =======================
     # Compile Pipeline
@@ -167,6 +170,10 @@ class StartWindow(QMainWindow):
         source = self.editor.toPlainText()
         tree = Parser(source).parse()
         return Compiler().compile(tree)
+
+    def export_latex_file(self):
+        
+        pass
 
     def write_tex(self, latex_code):
         with open(self.cache.tex_path, "w", encoding="utf-8") as f:

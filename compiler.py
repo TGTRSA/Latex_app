@@ -57,6 +57,7 @@ class Compiler:
             "\\usepackage{amsmath}\n"
             "\\usepackage{amssymb}\n"
             "\\usepackage{tikz}\n"
+            "\\usepackage{pgfplots}\n"
             "\\usepackage{geometry}\n"
             "\\begin{document}\n"
             f"{body}\n"
