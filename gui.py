@@ -3,9 +3,10 @@ import sys
 from enum import Enum, auto
 import os
 import uuid
-import subprocess
 import hashlib
 from pathlib import Path
+import shutil
+import subprocess
 
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget,
@@ -20,7 +21,6 @@ from PyQt5.QtWebEngineWidgets import (
 
 from compiler import Parser, Compiler
 
-
 # =======================
 # Menu Options
 # =======================
@@ -31,14 +31,13 @@ class MenuOptions(Enum):
     TIKZ = auto()
     CHEMFIG = auto()
 
-
 # =======================
-# Cache (path-based)
+# Cache Class
 # =======================
-
 
 class Cache:
     ROOT = Path("/home/tash/pythonProds/latex_app/latex_files")
+    _temp_dirs = set()  # tracks temporary folders for cleanup
 
     def __init__(self, source_path: str | None = None):
         Cache.ROOT.mkdir(parents=True, exist_ok=True)
@@ -46,10 +45,11 @@ class Cache:
         self.temp = source_path is None
 
         if self.temp:
-            # temporary buffer → UUID folder
+            # Temporary unsaved buffer → UUID folder
             self.id = str(uuid.uuid4())
+            Cache._temp_dirs.add(self.id)
         else:
-            # saved file → deterministic hash folder
+            # Saved file → deterministic hash folder
             abs_path = str(Path(source_path).resolve())
             self.id = hashlib.sha256(abs_path.encode()).hexdigest()[:16]
 
@@ -65,10 +65,6 @@ class Cache:
         return self.base_dir / "main.pdf"
 
     def promote(self, source_path: str):
-        """
-        Promote a temporary cache to permanent when the buffer is saved.
-        Copies contents from temp folder to hash-based folder.
-        """
         if not self.temp:
             return  # already permanent
 
@@ -77,14 +73,22 @@ class Cache:
         permanent_dir = Cache.ROOT / permanent_id
         permanent_dir.mkdir(exist_ok=True)
 
-        # copy all files from temp cache
+        # Copy all files from temp cache to permanent folder
         for item in self.base_dir.iterdir():
             shutil.copy(item, permanent_dir / item.name)
 
-        # switch internal references
+        # Update internal references
         self.id = permanent_id
         self.base_dir = permanent_dir
         self.temp = False
+        Cache._temp_dirs.discard(permanent_id)
+
+    @staticmethod
+    def cleanup_temp_dirs():
+        for temp_id in list(Cache._temp_dirs):
+            temp_dir = Cache.ROOT / temp_id
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            Cache._temp_dirs.discard(temp_id)
 
 # =======================
 # Worker (runs in thread)
@@ -131,7 +135,6 @@ class CompileWorker(QObject):
         except Exception as e:
             self.error.emit(str(e))
 
-
 # =======================
 # Main Window
 # =======================
@@ -139,7 +142,6 @@ class CompileWorker(QObject):
 class StartWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.current_file = None
         self.cache = Cache()
         self.thread = None
         self.worker = None
@@ -183,8 +185,8 @@ class StartWindow(QMainWindow):
         self.create_menu()
         self.apply_styles()
 
-        # ✅ FIXED right-click menu
-        self.editor.setContextMenuPolicy(Qt.CustomContextMenu)
+        # Right-click menu
+        self.editor.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.editor.customContextMenuRequested.connect(self.show_right_click_menu)
 
         self.compile_btn.clicked.connect(self.start_compile)
@@ -192,12 +194,12 @@ class StartWindow(QMainWindow):
 
         self.show()
 
+    # =======================
+    # Right-click Menu
+    # =======================
+
     def show_right_click_menu(self, pos):
         self.right_click_menu.exec_(self.editor.mapToGlobal(pos))
-
-    # =======================
-    # Menu
-    # =======================
 
     def create_menu(self):
         self.right_click_menu = QMenu()
@@ -207,8 +209,12 @@ class StartWindow(QMainWindow):
         tikz_menu = add.addMenu("Tikz")
         equation_menu = add.addMenu("Equation")
 
+        tikz_menu.setMouseTracking(True)
+        equation_menu.setMouseTracking(True)
+
         chemfig_action = QAction("Chemfig", self)
         draw_action = QAction("Draw", self)
+        tikz_menu_action = QAction("Node", self)
 
         inline_action = QAction("Inline equation", self)
         block_equation_action = QAction("Block equation", self)
@@ -221,15 +227,9 @@ class StartWindow(QMainWindow):
         save_action.triggered.connect(self.save_file)
         export_action.triggered.connect(self.export_latex_file)
 
-        chemfig_action.triggered.connect(
-            lambda: self.add_to_input_field(MenuOptions.CHEMFIG)
-        )
-        inline_action.triggered.connect(
-            lambda: self.add_to_input_field(MenuOptions.INLINE_EQUATION)
-        )
-        block_equation_action.triggered.connect(
-            lambda: self.add_to_input_field(MenuOptions.BLOCK_EQUATION)
-        )
+        chemfig_action.triggered.connect(lambda: self.add_to_input_field(MenuOptions.CHEMFIG))
+        inline_action.triggered.connect(lambda: self.add_to_input_field(MenuOptions.INLINE_EQUATION))
+        block_equation_action.triggered.connect(lambda: self.add_to_input_field(MenuOptions.BLOCK_EQUATION))
 
         menu.addAction(open_action)
         menu.addAction(save_action)
@@ -237,7 +237,6 @@ class StartWindow(QMainWindow):
 
         tikz_menu.addAction(draw_action)
         add.addAction(chemfig_action)
-
         equation_menu.addAction(block_equation_action)
         equation_menu.addAction(inline_action)
 
@@ -245,34 +244,24 @@ class StartWindow(QMainWindow):
         self.right_click_menu.addMenu(tikz_menu)
 
     def add_to_input_field(self, option):
-        input_text, ok = QInputDialog.getMultiLineText(
-            self, "Command", "Input space"
-        )
-        if not ok:
-            return
-
-        
-        match option:
-            case MenuOptions.BLOCK_EQUATION:
-                text_to_write = f"! {input_text} !"
-            case MenuOptions.INLINE_EQUATION:
-                text_to_write = f"$ {input_text} $"
-            case MenuOptions.CHEMFIG:
-                text_to_write = r"\chemfig{" + input_text + "}"
-            case MenuOptions.TIKZ:
-                text_to_write = (
-                "\\begin{tikzpicture}\n"
-                + input_text +
-                "\n\\end{tikzpicture}\n"
-                )
-
-
+        input_text, ok = QInputDialog.getMultiLineText(self, "Command","Input space" )
+        if ok:
+            match option:
+                case MenuOptions.BLOCK_EQUATION:
+                    text_to_write = f"! {input_text} !"
+                case MenuOptions.INLINE_EQUATION:
+                    text_to_write = f"$ {input_text} $"
+                case MenuOptions.CHEMFIG:
+                    text_to_write = r"\chemfig{"+ f"{input_text}" + "}"
+                case MenuOptions.TIKZ:
+                    text_to_write = "\\begin{tikzpicture}\n" + f"{input_text}\n" + "\\end{tikzpicture}\n"
         self.write_to_input(text_to_write)
 
     def write_to_input(self, text_to_write):
         cursor = self.editor.textCursor()
         cursor.insertText(text_to_write)
         self.editor.setTextCursor(cursor)
+        print(f"Writing {text_to_write}")
 
     # =======================
     # Compile Pipeline
@@ -293,17 +282,6 @@ class StartWindow(QMainWindow):
         tree = Parser(source).parse()
         return Compiler().compile(tree)
 
-    def export_latex_file(self):
-        path, _ = QFileDialog.getSaveFileName(
-            self, "Export LaTeX", "", "LaTeX Files (*.tex)"
-        )
-        if not path:
-            return
-
-        latex_code = self.generate_latex()
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(latex_code)
-
     def write_tex(self, latex_code):
         with open(self.cache.tex_path, "w", encoding="utf-8") as f:
             f.write(latex_code)
@@ -311,9 +289,9 @@ class StartWindow(QMainWindow):
     def run_compile_thread(self):
         self.thread = QThread()
         self.worker = CompileWorker(
-            str(self.cache.base_dir),
-            self.cache.tex_path.name,
-            str(self.cache.pdf_path)
+            self.cache.base_dir,
+            os.path.basename(self.cache.tex_path),
+            self.cache.pdf_path
         )
 
         self.worker.moveToThread(self.thread)
@@ -371,8 +349,8 @@ class StartWindow(QMainWindow):
         with open(path, "w", encoding="utf-8") as f:
             f.write(self.editor.toPlainText())
 
-        self.current_file = path
-        self.cache = Cache(path)
+        # Promote temp cache to permanent
+        self.cache.promote(path)
 
     def open_file(self):
         path, _ = QFileDialog.getOpenFileName(
@@ -384,8 +362,10 @@ class StartWindow(QMainWindow):
         with open(path, "r", encoding="utf-8") as f:
             self.editor.setPlainText(f.read())
 
-        self.current_file = path
-        self.cache = Cache(path)
+        self.cache = Cache(path)  # deterministic permanent cache
+
+    def export_latex_file(self):
+        pass
 
     # =======================
     # Styles
@@ -409,6 +389,13 @@ class StartWindow(QMainWindow):
             }
         """)
 
+    # =======================
+    # Close Event → Cleanup
+    # =======================
+
+    def closeEvent(self, event):
+        Cache.cleanup_temp_dirs()  # remove any temp caches
+        super().closeEvent(event)
 
 # =======================
 # Entry Point
