@@ -346,7 +346,7 @@ class StartWindow(QMainWindow):
         if not path:
             return
 
-        with open(path, "w", encoding="utf-8") as f:
+        with open(f'{path}.txt', "w", encoding="utf-8") as f:
             f.write(self.editor.toPlainText())
 
         # Promote temp cache to permanent
