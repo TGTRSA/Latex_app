@@ -1,4 +1,5 @@
 import sys
+from enum import Enum, auto
 import os
 import uuid
 import subprocess
@@ -7,7 +8,7 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget,
     QVBoxLayout, QHBoxLayout,
     QTextEdit, QPushButton,
-    QSplitter, QFileDialog, QAction
+    QSplitter, QFileDialog, QAction, QInputDialog
 )
 from PyQt5.QtCore import Qt, QUrl, QObject, QThread, pyqtSignal
 from PyQt5.QtWebEngineWidgets import (
@@ -16,6 +17,14 @@ from PyQt5.QtWebEngineWidgets import (
 
 from compiler import Parser, Compiler
 
+class MenuOptions(Enum):
+    BLOCK_EQUATION = auto()
+    INLINE_EQUATION = auto()
+    
+
+
+class MenuComponents:
+    pass
 
 # =======================
 # Cache
@@ -34,6 +43,7 @@ class Cache:
     @property
     def pdf_path(self):
         return os.path.join(self.base_dir, f"{self.id}.pdf")
+
 
 
 # =======================
@@ -137,8 +147,24 @@ class StartWindow(QMainWindow):
 
         self.show()
 
+    # ================|
+    # MENU COMPONENTS |
+    # ================|
+
     def create_menu(self):
         menu = self.menuBar().addMenu("File")
+        add = self.menuBar().addMenu("Add")
+        tikz_menu = add.addMenu("Tikz")
+        equation_menu = add.addMenu("Equation")
+        
+        tikz_menu.setMouseTracking(True)
+        equation_menu.setMouseTracking(True)
+
+        draw_action = QAction("Draw", self)
+        tikz_menu_action = QAction("Node", self)
+
+        inline_action = QAction("Inline equation", self)
+        block_equation_action = QAction("Block equation", self)
 
         open_action = QAction("Open", self)
         save_action = QAction("Save", self)
@@ -147,10 +173,37 @@ class StartWindow(QMainWindow):
         open_action.triggered.connect(self.open_file)
         save_action.triggered.connect(self.save_file)
         export_action.triggered.connect(self.export_latex_file)
+        #inline_action.triggered.connect(self.add_to_input_field)
+        block_equation_action.triggered.connect(lambda: self.add_to_input_field(MenuOptions.BLOCK_EQUATION))
         
         menu.addAction(open_action)
         menu.addAction(save_action)
         menu.addAction(export_action)
+
+        tikz_menu.addAction(draw_action)
+        
+        equation_menu.addAction(block_equation_action)
+
+        #add.addAction(tikz_action)
+    
+    
+    def add_to_input_field(self, option):
+        
+        text, ok = QInputDialog.getText(self, "Command","Type here.." )
+        if ok:
+            if option == MenuOptions.BLOCK_EQUATION:
+                print(text)
+
+
+    #TODO
+    def write_tikz(self):
+        # Open a list of options for what the inidividual wants to write
+
+        # switch case based on enums and then compile code based on chose enum
+
+        # convert to tikz formulae
+
+        pass
 
     # =======================
     # Compile Pipeline
