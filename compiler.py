@@ -58,6 +58,7 @@ class Compiler:
             "\\usepackage{amssymb}\n"
             "\\usepackage{tikz}\n"
             "\\usepackage{pgfplots}\n"
+            "\\usepackage{chemfig}"
             "\\usepackage{geometry}\n"
             "\\begin{document}\n"
             f"{body}\n"
