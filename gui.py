@@ -20,6 +20,7 @@ from compiler import Parser, Compiler
 class MenuOptions(Enum):
     BLOCK_EQUATION = auto()
     INLINE_EQUATION = auto()
+    TIKZ = auto()
     
 
 
@@ -173,7 +174,7 @@ class StartWindow(QMainWindow):
         open_action.triggered.connect(self.open_file)
         save_action.triggered.connect(self.save_file)
         export_action.triggered.connect(self.export_latex_file)
-        #inline_action.triggered.connect(self.add_to_input_field)
+        inline_action.triggered.connect(lambda: self.add_to_input_field(MenuOptions.INLINE_EQUATION))
         block_equation_action.triggered.connect(lambda: self.add_to_input_field(MenuOptions.BLOCK_EQUATION))
         
         menu.addAction(open_action)
@@ -183,16 +184,31 @@ class StartWindow(QMainWindow):
         tikz_menu.addAction(draw_action)
         
         equation_menu.addAction(block_equation_action)
-
+        equation_menu.addAction(inline_action)
         #add.addAction(tikz_action)
     
     
     def add_to_input_field(self, option):
         
-        text, ok = QInputDialog.getText(self, "Command","Type here.." )
+        input_text, ok = QInputDialog.getMultiLineText(self, "Command","Input space" )
         if ok:
-            if option == MenuOptions.BLOCK_EQUATION:
-                print(text)
+            match option:
+                case MenuOptions.BLOCK_EQUATION:
+                    text_to_write = f"! {input_text} !"
+                    #self.write_to_input(bo)
+                case MenuOptions.INLINE_EQUATION:
+                    text_to_write = f"$ {input_text} $"
+                
+        self.write_to_input(text_to_write)
+
+    def write_to_input(self, text_to_write):
+        cursor = self.editor.textCursor()
+        index = cursor.position()
+        #cursor.setPosition(index)
+        cursor.insertText(text_to_write)
+        self.editor.setTextCursor(cursor)
+        pass
+
 
 
     #TODO
@@ -223,7 +239,8 @@ class StartWindow(QMainWindow):
         source = self.editor.toPlainText()
         tree = Parser(source).parse()
         return Compiler().compile(tree)
-
+    
+    #TODO
     def export_latex_file(self):
         
         pass
