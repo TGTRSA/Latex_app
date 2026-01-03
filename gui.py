@@ -1,224 +1,222 @@
-
-import difflib
 import sys
-from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QTextEdit, QPushButton, QSplitter, QFileDialog, QAction
-)
-from PyQt5.QtCore import Qt
-from compiler import Parser, Compiler
 import os
 import uuid
 import subprocess
 
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QWidget,
+    QVBoxLayout, QHBoxLayout,
+    QTextEdit, QPushButton,
+    QSplitter, QFileDialog, QAction
+)
+from PyQt5.QtCore import Qt, QUrl
+from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
+
+from compiler import Parser, Compiler
+
+
+# =======================
+# Cache / Paths
+# =======================
 
 class Cache:
-    def __init__(self, random_name):
-        self.random_name = random_name
-        self.cache = {}
+    def __init__(self):
+        self.id = str(uuid.uuid4())
+        self.base_dir = f"/home/tash/pythonProds/latex_app/latex_files/{self.id}"
+        os.makedirs(self.base_dir, exist_ok=True)
 
-    def initiate(self):
-        self.cache['latex_code'] = None
-        self.cache['filled'] = False
+    @property
+    def tex_path(self):
+        return os.path.join(self.base_dir, f"{self.id}.tex")
 
-    def __getitem__(self, key):
-        return self.cache[key]
+    @property
+    def pdf_path(self):
+        return os.path.join(self.base_dir, f"{self.id}.pdf")
 
-    def load(self, text):
-        self.cache['latex_code'] = text
-        self.cache['filled'] = True
 
+# =======================
+# Main Window
+# =======================
 
 class StartWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        random_name = str(uuid.uuid4())
-        self.cache = Cache(random_name)
-        self.cache.initiate()
+        self.cache = Cache()
         self.init_ui()
 
+    # ---------- UI ----------
+
     def init_ui(self):
-        self.setWindowTitle("My PyQt Window")
-        self.setGeometry(100, 100, 800, 600)
+        self.setWindowTitle("LaTeX Editor (PDF Preview)")
+        self.setGeometry(100, 100, 1100, 700)
 
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        main_layout = QVBoxLayout()
-        central_widget.setLayout(main_layout)
+        central = QWidget()
+        self.setCentralWidget(central)
+        layout = QVBoxLayout(central)
 
+        # Top bar
         top_bar = QHBoxLayout()
-        self.compile_button = QPushButton("Compile")
-        self.save_file_button = QPushButton("Save")
+        self.compile_btn = QPushButton("Compile")
+        self.save_btn = QPushButton("Save")
         top_bar.addStretch()
-        top_bar.addWidget(self.compile_button)
-        top_bar.addWidget(self.save_file_button)
-        main_layout.addLayout(top_bar)
+        top_bar.addWidget(self.compile_btn)
+        top_bar.addWidget(self.save_btn)
+        layout.addLayout(top_bar)
 
-        self.double_display()
-        main_layout.addWidget(self.splitter)
+        # Splitter
+        splitter = QSplitter(Qt.Horizontal)
+
+        self.editor = QTextEdit()
+        self.editor.setPlaceholderText("Type your source text here…")
+        splitter.addWidget(self.editor)
+
+        self.pdf_view = QWebEngineView()
+        self.pdf_view.settings().setAttribute(
+            QWebEngineSettings.PluginsEnabled, True
+        )
+        splitter.addWidget(self.pdf_view)
+
+        splitter.setSizes([550, 550])
+        layout.addWidget(splitter)
 
         self.create_menu()
-        self.style_sheets()
+        self.apply_styles()
 
-        self.compile_button.clicked.connect(self.compile_text)
-        self.save_file_button.clicked.connect(self._save)
+        self.compile_btn.clicked.connect(self.compile_pipeline)
+        self.save_btn.clicked.connect(self.save_file)
 
         self.show()
 
     def create_menu(self):
-        menubar = self.menuBar()
-
-        file_menu = menubar.addMenu("File")
+        menu = self.menuBar().addMenu("File")
 
         open_action = QAction("Open", self)
         save_action = QAction("Save", self)
 
-        file_menu.addAction(open_action)
-        file_menu.addAction(save_action)
-
         open_action.triggered.connect(self.open_file)
-        save_action.triggered.connect(self._save)
+        save_action.triggered.connect(self.save_file)
 
-    def double_display(self):
-        self.splitter = QSplitter(Qt.Horizontal)
+        menu.addAction(open_action)
+        menu.addAction(save_action)
 
-        self.text_input = QTextEdit()
-        self.text_input.setPlaceholderText("Type here")
-        self.splitter.addWidget(self.text_input)
+    # =======================
+    # Compile Pipeline
+    # =======================
 
-        self.display_text = QTextEdit()
-        self.display_text.setReadOnly(True)
-        self.splitter.addWidget(self.display_text)
+    def compile_pipeline(self):
+        try:
+            latex_code = self.generate_latex()
+            self.write_tex(latex_code)
+            self.compile_pdf()
+            self.display_pdf()
+        except Exception as e:
+            self.display_error(str(e))
 
-        self.splitter.setSizes([400, 400])
+    def generate_latex(self):
+        source = self.editor.toPlainText()
+        tree = Parser(source).parse()
+        latex = Compiler().compile(tree)
+        return latex
 
-    # ---------------- Actions ----------------
-    def get_text_input(self):
-        return self.text_input.toPlainText()
+    def write_tex(self, latex_code):
+        with open(self.cache.tex_path, "w", encoding="utf-8") as f:
+            f.write(latex_code)
 
-    def convert_to_tex(self):
-        text = self.get_text_input()
-        tree = Parser(text).parse()
-        tex_output = Compiler().compile(tree)
-        return tex_output
+    def compile_pdf(self):
+        result = subprocess.run(
+            [
+                "pdflatex",
+                "-interaction=nonstopmode",
+                "-halt-on-error",
+                os.path.basename(self.cache.tex_path)
+            ],
+            cwd=self.cache.base_dir,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
 
-    def write_latex_to_file(self, tex_file, latex_output):
-        with open(tex_file, "w") as f:
-            f.write(latex_output)
-
-    def cache_file(self, latex_output):
-        path = f"/home/tash/pythonProds/latex_app/latex_files/{self.cache.random_name}"
-        os.makedirs(path, exist_ok=True)
-
-        tex_file = f"{path}/{self.cache.random_name}.tex"
-
-        if self.cache['latex_code'] is not None:
-            # Compare old and new latex, but still write full latex to file
-            old_lines = self.cache['latex_code'].splitlines()
-            new_lines = latex_output.splitlines()
-
-            diff = difflib.unified_diff(
-                old_lines,
-                new_lines,
-                fromfile='previous',
-                tofile='current',
-                lineterm=''
+        if result.returncode != 0:
+            raise RuntimeError(
+                "LaTeX compilation failed:\n\n"
+                + result.stdout
+                + "\n"
+                + result.stderr
             )
 
-            diff_text = "\n".join(diff)
-            if diff_text:
-                print("[INFO] LaTeX changes detected")
+        if not os.path.exists(self.cache.pdf_path):
+            raise RuntimeError("pdflatex finished but PDF was not created")
 
-            self.write_latex_to_file(tex_file, latex_output)
-            self.cache.load(latex_output)
+    def display_pdf(self):
+        self.pdf_view.load(
+            QUrl.fromLocalFile(self.cache.pdf_path)
+        )
 
-        else:
-            self.write_latex_to_file(tex_file, latex_output)
-            self.cache.load(latex_output)
+    # =======================
+    # Errors
+    # =======================
 
-        try:
-            result = subprocess.run(
-                ['latex', f'{self.cache.random_name}.tex'],
-                cwd=path,
-                capture_output=True,
-                text=True
-            )
+    def display_error(self, message):
+        self.pdf_view.setHtml(f"""
+        <html>
+        <body style="background:#1e1e1e;color:#ff6b6b;padding:20px;">
+            <h2>Compilation Error</h2>
+            <pre>{message}</pre>
+        </body>
+        </html>
+        """)
 
-            if result.returncode != 0:
-                raise SystemError(result.stderr)
+    # =======================
+    # File Handling
+    # =======================
 
-        except Exception as e:
-            print(f"[ERROR] {e}")
-
-    def compile_tex(self):
-        pass
-
-    def compile_text(self):
-        try:
-            latex_output = self.convert_to_tex()
-            self.cache_file(latex_output)
-
-            self.display_text.clear()
-            self.display_text.setPlainText(latex_output)
-
-        except Exception as e:
-            print(f"[ERROR] {e}")
-
-    def _save(self):
-        filepath, _ = QFileDialog.getSaveFileName(self, "Save file")
-        if not filepath:
+    def save_file(self):
+        path, _ = QFileDialog.getSaveFileName(self, "Save file", "", "Text Files (*.txt)")
+        if not path:
             return
 
-        latex_content = self.convert_to_tex()
-        file_content = self.get_text_input()
-
-        with open(f"{filepath}.txt", "w") as f:
-            f.write(file_content)
-
-        base_name = os.path.splitext(os.path.basename(filepath))[0]
-        latex_file_path = f"/home/tash/{base_name}.tex"
-
-        with open(latex_file_path, "w") as f:
-            f.write(latex_content)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(self.editor.toPlainText())
 
     def open_file(self):
-        random_name = str(uuid.uuid4())
-        self.cache = Cache(random_name)
-        self.cache.initiate()
+        path, _ = QFileDialog.getOpenFileName(self, "Open file", "", "Text Files (*.txt)")
+        if not path:
+            return
 
-        filepath, _ = QFileDialog.getOpenFileName(self, "Open file")
-        if filepath:
-            try:
-                with open(filepath, "r") as f:
-                    content = f.read()
-                self.text_input.setPlainText(content)
-            except Exception as e:
-                print(f"[ERROR] {e}")
+        with open(path, "r", encoding="utf-8") as f:
+            self.editor.setPlainText(f.read())
 
-    # ---------------- Styles ----------------
-    def style_sheets(self):
-        self.compile_button.setStyleSheet("""
-            QPushButton{
-                background-color: #2ecc71;
+        # Reset cache to avoid PDF collisions
+        self.cache = Cache()
+
+    # =======================
+    # Styles
+    # =======================
+
+    def apply_styles(self):
+        self.compile_btn.setStyleSheet("""
+            QPushButton {
+                background:#2ecc71;
                 border:none;
-                padding:10px 5px;
-                border-radius:5px;
-                min-width:80px;
+                padding:8px 16px;
+                border-radius:6px;
             }
         """)
-        self.save_file_button.setStyleSheet("""
-            QPushButton{
-                background-color: #3498db;
+        self.save_btn.setStyleSheet("""
+            QPushButton {
+                background:#3498db;
                 border:none;
-                padding:10px 5px;
-                border-radius:5px;
-                min-width:80px;
+                padding:8px 16px;
+                border-radius:6px;
             }
         """)
 
 
-if __name__ == '__main__':
+# =======================
+# Entry Point
+# =======================
+
+if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = StartWindow()
     sys.exit(app.exec_())
-
