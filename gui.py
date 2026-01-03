@@ -9,14 +9,16 @@ from PyQt5.QtWidgets import (
     QTextEdit, QPushButton,
     QSplitter, QFileDialog, QAction
 )
-from PyQt5.QtCore import Qt, QUrl
-from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
+from PyQt5.QtCore import Qt, QUrl, QObject, QThread, pyqtSignal
+from PyQt5.QtWebEngineWidgets import (
+    QWebEngineView, QWebEngineSettings
+)
 
 from compiler import Parser, Compiler
 
 
 # =======================
-# Cache / Paths
+# Cache
 # =======================
 
 class Cache:
@@ -35,6 +37,52 @@ class Cache:
 
 
 # =======================
+# Worker (runs in thread)
+# =======================
+
+class CompileWorker(QObject):
+    success = pyqtSignal(str)
+    error = pyqtSignal(str)
+
+    def __init__(self, workdir, tex_filename, pdf_path):
+        super().__init__()
+        self.workdir = workdir
+        self.tex_filename = tex_filename
+        self.pdf_path = pdf_path
+
+    def run(self):
+        try:
+            result = subprocess.run(
+                [
+                    "pdflatex",
+                    "-interaction=nonstopmode",
+                    "-halt-on-error",
+                    self.tex_filename
+                ],
+                cwd=self.workdir,
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+
+            if result.returncode != 0:
+                raise RuntimeError(
+                    "LaTeX compilation failed:\n\n"
+                    + result.stdout
+                    + "\n"
+                    + result.stderr
+                )
+
+            if not os.path.exists(self.pdf_path):
+                raise RuntimeError("pdflatex finished but PDF was not created")
+
+            self.success.emit(self.pdf_path)
+
+        except Exception as e:
+            self.error.emit(str(e))
+
+
+# =======================
 # Main Window
 # =======================
 
@@ -42,6 +90,8 @@ class StartWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.cache = Cache()
+        self.thread = None
+        self.worker = None
         self.init_ui()
 
     # ---------- UI ----------
@@ -63,7 +113,7 @@ class StartWindow(QMainWindow):
         top_bar.addWidget(self.save_btn)
         layout.addLayout(top_bar)
 
-        # Splitter
+        # Split view
         splitter = QSplitter(Qt.Horizontal)
 
         self.editor = QTextEdit()
@@ -82,7 +132,7 @@ class StartWindow(QMainWindow):
         self.create_menu()
         self.apply_styles()
 
-        self.compile_btn.clicked.connect(self.compile_pipeline)
+        self.compile_btn.clicked.connect(self.start_compile)
         self.save_btn.clicked.connect(self.save_file)
 
         self.show()
@@ -103,54 +153,59 @@ class StartWindow(QMainWindow):
     # Compile Pipeline
     # =======================
 
-    def compile_pipeline(self):
+    def start_compile(self):
         try:
+            self.compile_btn.setEnabled(False)
             latex_code = self.generate_latex()
             self.write_tex(latex_code)
-            self.compile_pdf()
-            self.display_pdf()
+            self.run_compile_thread()
         except Exception as e:
             self.display_error(str(e))
+            self.compile_btn.setEnabled(True)
 
     def generate_latex(self):
         source = self.editor.toPlainText()
         tree = Parser(source).parse()
-        latex = Compiler().compile(tree)
-        return latex
+        return Compiler().compile(tree)
 
     def write_tex(self, latex_code):
         with open(self.cache.tex_path, "w", encoding="utf-8") as f:
             f.write(latex_code)
 
-    def compile_pdf(self):
-        result = subprocess.run(
-            [
-                "pdflatex",
-                "-interaction=nonstopmode",
-                "-halt-on-error",
-                os.path.basename(self.cache.tex_path)
-            ],
-            cwd=self.cache.base_dir,
-            capture_output=True,
-            text=True,
-            timeout=30
+    def run_compile_thread(self):
+        self.thread = QThread()
+        self.worker = CompileWorker(
+            self.cache.base_dir,
+            os.path.basename(self.cache.tex_path),
+            self.cache.pdf_path
         )
 
-        if result.returncode != 0:
-            raise RuntimeError(
-                "LaTeX compilation failed:\n\n"
-                + result.stdout
-                + "\n"
-                + result.stderr
-            )
+        self.worker.moveToThread(self.thread)
 
-        if not os.path.exists(self.cache.pdf_path):
-            raise RuntimeError("pdflatex finished but PDF was not created")
+        self.thread.started.connect(self.worker.run)
+        self.worker.success.connect(self.on_compile_success)
+        self.worker.error.connect(self.on_compile_error)
 
-    def display_pdf(self):
-        self.pdf_view.load(
-            QUrl.fromLocalFile(self.cache.pdf_path)
-        )
+        self.worker.success.connect(self.thread.quit)
+        self.worker.error.connect(self.thread.quit)
+
+        self.worker.success.connect(self.worker.deleteLater)
+        self.worker.error.connect(self.worker.deleteLater)
+        self.thread.finished.connect(self.thread.deleteLater)
+
+        self.thread.start()
+
+    # =======================
+    # Thread Callbacks
+    # =======================
+
+    def on_compile_success(self, pdf_path):
+        self.compile_btn.setEnabled(True)
+        self.pdf_view.load(QUrl.fromLocalFile(pdf_path))
+
+    def on_compile_error(self, message):
+        self.compile_btn.setEnabled(True)
+        self.display_error(message)
 
     # =======================
     # Errors
@@ -171,7 +226,9 @@ class StartWindow(QMainWindow):
     # =======================
 
     def save_file(self):
-        path, _ = QFileDialog.getSaveFileName(self, "Save file", "", "Text Files (*.txt)")
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save file", "", "Text Files (*.txt)"
+        )
         if not path:
             return
 
@@ -179,15 +236,16 @@ class StartWindow(QMainWindow):
             f.write(self.editor.toPlainText())
 
     def open_file(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Open file", "", "Text Files (*.txt)")
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Open file", "", "Text Files (*.txt)"
+        )
         if not path:
             return
 
         with open(path, "r", encoding="utf-8") as f:
             self.editor.setPlainText(f.read())
 
-        # Reset cache to avoid PDF collisions
-        self.cache = Cache()
+        self.cache = Cache()  # prevent collisions
 
     # =======================
     # Styles
