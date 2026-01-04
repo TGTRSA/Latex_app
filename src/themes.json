@@ -1,0 +1,28 @@
+
+{
+  "Obsidian": {
+    "bg": "#4a2c3f",
+    "accent": "#486d83",
+    "text": "#f5f5f5"
+  },
+  "Carmine": {
+    "bg": "#7a5063",
+    "accent": "#f4a384",
+    "text": "#ffffff"
+  },
+  "Moss": {
+    "bg": "#384514",
+    "accent": "#f8f5f2",
+    "text": "#f8f5f2"
+  },
+  "Coffee": {
+    "bg": "#f3e9dc",
+    "accent": "#c08552",
+    "text": "#5e3023"
+  },
+  "Dutch Wine": {
+    "bg": "#efdfbb",
+    "accent": "#722f37",
+    "text": "#3a1a1a"
+  }
+}
